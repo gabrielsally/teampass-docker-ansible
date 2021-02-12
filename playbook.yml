@@ -1,0 +1,44 @@
+---
+- hosts: teampass
+  remote_user: grezende
+  become: yes
+  tasks:
+    - name: "Subir container aplicacao"
+      docker_container:
+        name: TeamPass
+        image: gabrielsally/teampass-app:1.0
+        pull: yes
+        state: started
+        tty: yes
+        detach: yes
+        interactive: yes
+        ports:
+          - "80:80"
+
+    - name: "Reiniciar servico Apache2"  
+      shell: docker exec -i TeamPass /etc/init.d/apache2 restart
+
+    - name: "Subir container MariaDB"
+      docker_container:
+        name: MariaDB
+        image: gabrielsally/teampass-db:1.0
+        pull: yes
+        state: started
+        tty: yes
+        detach: yes
+        interactive: yes
+    
+    - name: "Reiniciar servico SQL"  
+      shell: docker exec -i MariaDB /etc/init.d/mysql restart
+
+    - name: "Criar banco" 
+      shell: docker exec -i MariaDB mysql -u root --execute "create database teampass character set utf8 collate utf8_bin;"
+
+    - name: "Configurar user"  
+      shell: docker exec -i MariaDB mysql -u root --execute "GRANT ALL ON teampass.* to teampass_admin@172.17.0.2 IDENTIFIED BY 'P@ssword' WITH GRANT OPTION;"
+      
+    - name: "Flush"  
+      shell: docker exec -i MariaDB mysql -u root --execute "FLUSH PRIVILEGES;"
+
+    - name: "Reiniciar servico SQL 2"  
+      shell: docker exec -i MariaDB /etc/init.d/mysql restart
